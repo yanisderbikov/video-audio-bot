@@ -1,0 +1,88 @@
+spring:
+  application:
+    name: video-audio-bot
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/video_audio_bot}
+    username: ${DB_USER:video_audio_bot}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:16}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:10000}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+  aop:
+    proxy-target-class: false
+  lifecycle:
+    timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT:30s}
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+management:
+  endpoints.web.exposure.include: health,info
+  endpoint.health.show-details: never
+logging:
+  level:
+    root: ${LOG_LEVEL:INFO}
+app:
+  work-directory: ${WORK_DIRECTORY:./work}
+  telegram:
+    token: ${TELEGRAM_BOT_TOKEN}
+    base-url: ${TELEGRAM_BASE_URL:http://telegram-bot-api:8081}
+    mode: ${TELEGRAM_MODE:polling}
+    webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
+    local-directory: ${TELEGRAM_LOCAL_DIRECTORY:/var/lib/telegram-bot-api}
+    server-directory: ${TELEGRAM_SERVER_DIRECTORY:/var/lib/telegram-bot-api}
+    request-timeout: ${TELEGRAM_REQUEST_TIMEOUT:10m}
+    poll-timeout-seconds: ${TELEGRAM_POLL_TIMEOUT_SECONDS:30}
+    max-file-bytes: ${TELEGRAM_MAX_FILE_BYTES:2147483648}
+    allowed-user-ids: ${TELEGRAM_ALLOWED_USER_IDS:}
+    text-limit: ${TELEGRAM_TEXT_LIMIT:3500}
+  openai:
+    api-key: ${OPENAI_API_KEY}
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+    model: ${OPENAI_TRANSCRIPTION_MODEL:gpt-4o-transcribe-diarize}
+    language: ${OPENAI_LANGUAGE:ru}
+    timeout: ${OPENAI_TIMEOUT:30m}
+    max-upload-bytes: ${OPENAI_MAX_UPLOAD_BYTES:24000000}
+    max-speaker-references: ${OPENAI_MAX_SPEAKER_REFERENCES:4}
+  s3:
+    bucket: ${S3_BUCKET}
+    region: ${S3_REGION:us-east-1}
+    endpoint: ${S3_ENDPOINT:}
+    public-endpoint: ${S3_PUBLIC_ENDPOINT:}
+    access-key: ${S3_ACCESS_KEY:}
+    secret-key: ${S3_SECRET_KEY:}
+    path-style: ${S3_PATH_STYLE:true}
+    prefix: ${S3_PREFIX:video-audio-bot/}
+    timeout: ${S3_TIMEOUT:15m}
+    link-ttl: ${S3_LINK_TTL:24h}
+    purge-versions: ${S3_PURGE_VERSIONS:false}
+  pipeline:
+    enabled: ${PIPELINE_ENABLED:true}
+    poll-interval: ${PIPELINE_POLL_INTERVAL:2s}
+    lease-duration: ${PIPELINE_LEASE_DURATION:90s}
+    heartbeat-interval: ${PIPELINE_HEARTBEAT_INTERVAL:20s}
+    max-attempts: ${PIPELINE_MAX_ATTEMPTS:5}
+    retry-base: ${PIPELINE_RETRY_BASE:10s}
+    retry-max: ${PIPELINE_RETRY_MAX:15m}
+    shutdown-timeout: ${SHUTDOWN_TIMEOUT:30s}
+  media:
+    ffmpeg: ${FFMPEG_BINARY:ffmpeg}
+    ffprobe: ${FFPROBE_BINARY:ffprobe}
+    timeout: ${MEDIA_TIMEOUT:2h}
+    bitrate-kbps: ${AUDIO_BITRATE_KBPS:64}
+    sample-rate: ${AUDIO_SAMPLE_RATE:16000}
+    chunk-seconds: ${AUDIO_CHUNK_SECONDS:1200}
+    overlap-seconds: ${AUDIO_OVERLAP_SECONDS:2}
+    max-duration-seconds: ${MEDIA_MAX_DURATION_SECONDS:43200}
+  cleanup:
+    enabled: ${CLEANUP_ENABLED:true}
+    interval: ${CLEANUP_INTERVAL:10m}
+    retention: ${RETENTION:24h}
+    batch-size: ${CLEANUP_BATCH_SIZE:50}
