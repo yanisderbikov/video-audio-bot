@@ -14,6 +14,9 @@ public interface JobRepository {
 
   Optional<Job> latest(long chatId, long userId);
 
+  /** An earlier job of this user for the same file that has not failed. */
+  Optional<Job> duplicate(long chatId, long userId, String fileUniqueId);
+
   Optional<Job> claim(Stage stage, UUID token, Duration lease);
 
   boolean heartbeat(UUID id, UUID token, Duration lease);

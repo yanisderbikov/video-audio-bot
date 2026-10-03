@@ -70,6 +70,32 @@ class FullPipelineTest {
       };
 
   @Test
+  void resentFileIsNotProcessedAgainUnlessPreviousJobFailed() throws Exception {
+    sql.execute(
+        "TRUNCATE"
+            + " transcription_job,transcription_checkpoint,job_delivery,job_notification,worker_lease"
+            + " CASCADE");
+    String template =
+        "{\"update_id\":%d,\"message\":{\"message_id\":%d,\"chat\":{\"id\":5},\"from\":{\"id\":6},"
+            + "\"voice\":{\"file_id\":\"id-%d\",\"file_unique_id\":\"same\",\"file_size\":100}}}";
+    JsonNode first = json.readTree(template.formatted(9100, 20, 1));
+    updates.accept(first);
+    updates.accept(first);
+    updates.accept(json.readTree(template.formatted(9101, 21, 2)));
+    assertThat(jobCount(5)).isEqualTo(1);
+    verify(telegram, times(1)).sendText(eq(5L), eq(20L), contains("уже отправлялся"));
+
+    sql.update("update transcription_job set status='FAILED' where chat_id=5");
+    updates.accept(json.readTree(template.formatted(9102, 22, 3)));
+    assertThat(jobCount(5)).isEqualTo(2);
+  }
+
+  long jobCount(long chat) {
+    return sql.queryForObject(
+        "select count(*) from transcription_job where chat_id=?", Long.class, chat);
+  }
+
+  @Test
   void largeVideoResumesTranscriptionAndDeliveryThenCleansOnlyCompletedJob() throws Exception {
     sql.execute(
         "TRUNCATE"

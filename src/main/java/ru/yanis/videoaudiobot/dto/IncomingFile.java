@@ -6,6 +6,7 @@ public record IncomingFile(
     long userId,
     long messageId,
     String fileId,
+    String fileUniqueId,
     String fileName,
     String mimeType,
     long fileSize) {}

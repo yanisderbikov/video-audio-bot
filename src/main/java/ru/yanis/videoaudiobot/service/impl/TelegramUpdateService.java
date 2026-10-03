@@ -51,12 +51,25 @@ class TelegramUpdateService implements BotUpdateService {
             chat, reply, "Файл превышает настроенный лимит: " + config.maxFileBytes() + " байт.");
         return;
       }
+      String unique = file.hasNonNull("file_unique_id") ? file.path("file_unique_id").asText() : null;
+      var previous = jobs.duplicate(chat, user, unique);
+      // A redelivered update finds its own job; that is not a re-sent file.
+      if (previous.isPresent() && previous.get().updateId() != id) {
+        jobs.ingest(id, null);
+        telegram.sendText(
+            chat,
+            previous.get().messageId(),
+            "Этот файл уже отправлялся, повторно не обрабатываю. Результат — в ответах на это"
+                + " сообщение, статус: /status");
+        return;
+      }
       String name = file.path("file_name").asText("recording");
       if (name.length() > 512) name = name.substring(0, 512);
       String mime = file.path("mime_type").asText("application/octet-stream");
       jobs.ingest(
           id,
-          new IncomingFile(id, chat, user, reply, file.path("file_id").asText(), name, mime, size));
+          new IncomingFile(
+              id, chat, user, reply, file.path("file_id").asText(), unique, name, mime, size));
       return;
     }
     jobs.ingest(id, null);

@@ -59,7 +59,7 @@ class PipelineDatabaseTest {
 
   UUID enqueue(long update) {
     return jobs.ingest(
-            update, new IncomingFile(update, 1, 2, 3, "f", "recording.mp4", "video/mp4", 123))
+            update, new IncomingFile(update, 1, 2, 3, "f", null, "recording.mp4", "video/mp4", 123))
         .orElseThrow();
   }
 
@@ -72,7 +72,7 @@ class PipelineDatabaseTest {
     UUID id = enqueue(100);
     assertThat(
             jobs.ingest(
-                100, new IncomingFile(100, 1, 2, 3, "f", "recording.mp4", "video/mp4", 123)))
+                100, new IncomingFile(100, 1, 2, 3, "f", null, "recording.mp4", "video/mp4", 123)))
         .isEmpty();
     assertThat(sql.queryForObject("select count(*) from transcription_job", Long.class))
         .isEqualTo(1);

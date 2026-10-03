@@ -29,8 +29,11 @@ class HibernateJobRepository implements JobRepository {
       inserted =
           em.createNativeQuery(
                       """
-INSERT INTO transcription_job(id,update_id,chat_id,user_id,message_id,file_id,file_name,mime_type,file_size,stage,status)
-VALUES(:id,:updateId,:chatId,:userId,:messageId,:fileId,:fileName,:mimeType,:fileSize,'UPLOAD','READY')
+INSERT INTO transcription_job(id,update_id,chat_id,user_id,message_id,file_id,file_unique_id,file_name,mime_type,file_size,stage,status)
+SELECT :id,:updateId,:chatId,:userId,:messageId,:fileId,:fileUniqueId,:fileName,:mimeType,:fileSize,'UPLOAD','READY'
+WHERE CAST(:fileUniqueId AS varchar) IS NULL OR NOT EXISTS (
+  SELECT 1 FROM transcription_job WHERE chat_id=:chatId AND user_id=:userId
+  AND file_unique_id=:fileUniqueId AND status<>'FAILED')
 ON CONFLICT(update_id) DO NOTHING
 """)
                   .setParameter("id", id)
@@ -39,6 +42,7 @@ ON CONFLICT(update_id) DO NOTHING
                   .setParameter("userId", f.userId())
                   .setParameter("messageId", f.messageId())
                   .setParameter("fileId", f.fileId())
+                  .setParameter("fileUniqueId", f.fileUniqueId())
                   .setParameter("fileName", f.fileName())
                   .setParameter("mimeType", f.mimeType())
                   .setParameter("fileSize", f.fileSize())
@@ -79,6 +83,21 @@ ON CONFLICT(update_id) DO NOTHING
         .setMaxResults(1)
         .getResultStream()
         .findFirst();
+  }
+
+  public Optional<Job> duplicate(long chatId, long userId, String fileUniqueId) {
+    if (fileUniqueId == null) return Optional.empty();
+    return em
+        .createNativeQuery(
+            "SELECT CAST(id AS varchar) FROM transcription_job WHERE chat_id=:chat AND"
+                + " user_id=:user AND file_unique_id=:file AND status<>'FAILED'"
+                + " ORDER BY created_at LIMIT 1")
+        .setParameter("chat", chatId)
+        .setParameter("user", userId)
+        .setParameter("file", fileUniqueId)
+        .getResultStream()
+        .findFirst()
+        .flatMap(id -> find(UUID.fromString((String) id)));
   }
 
   public Optional<Job> claim(Stage stage, UUID token, Duration lease) {
