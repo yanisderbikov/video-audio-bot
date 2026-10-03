@@ -17,13 +17,19 @@ class DeliverHandler implements StageHandler {
   private final StorageService storage;
   private final TelegramService telegram;
   private final JobRepository jobs;
+  private final TranscriptFormatter formatter;
   private final AppProperties config;
 
   DeliverHandler(
-      StorageService storage, TelegramService telegram, JobRepository jobs, AppProperties config) {
+      StorageService storage,
+      TelegramService telegram,
+      JobRepository jobs,
+      TranscriptFormatter formatter,
+      AppProperties config) {
     this.storage = storage;
     this.telegram = telegram;
     this.jobs = jobs;
+    this.formatter = formatter;
     this.config = config;
   }
 
@@ -32,55 +38,31 @@ class DeliverHandler implements StageHandler {
   }
 
   public StageOutput execute(Job job, UUID token, Path dir, LeaseGuard guard) {
-    Path path = dir.resolve("transcript.txt");
-    storage.get(job.resultKey(), path);
     if (!jobs.delivered(job.id(), "document")) {
-      guard.check();
-      long message =
-          telegram.sendDocument(
-              job.chatId(),
-              job.messageId(),
-              path,
-              "Транскрипция с таймкодами и говорящими. Задача: " + job.id());
-      jobs.delivered(job.id(), token, "document", message);
-    }
-    if (!jobs.delivered(job.id(), "text")) {
-      String text;
-      try {
-        text = Files.readString(path);
-      } catch (java.io.IOException e) {
-        throw new ProcessingException("LOCAL_IO", true);
-      }
-      int limit = config.telegram().textLimit();
-      if (text.length() > limit) {
-        int end = limit - 100;
-        if (Character.isHighSurrogate(text.charAt(end - 1))) end--;
-        text = text.substring(0, end) + "\n…\nПолный текст — в TXT-файле.";
-      }
-      guard.check();
-      long message = telegram.sendText(job.chatId(), job.messageId(), text);
-      jobs.delivered(job.id(), token, "text", message);
-    }
-    if (!jobs.recentlyDelivered(job.id(), "link", config.s3().linkTtl().dividedBy(2))) {
+      Path path = dir.resolve("transcript.txt");
+      storage.get(job.resultKey(), path);
+      String name = formatter.fileName(storage.getJson(job.transcriptKey(), Transcript.class));
       guard.check();
       String url = storage.signedUrl(job.resultKey(), config.s3().linkTtl());
       String until =
-          DateTimeFormatter.ofPattern("dd.MM.uuuu HH:mm:ss 'UTC'")
+          DateTimeFormatter.ofPattern("dd.MM.uuuu HH:mm 'UTC'")
               .withZone(ZoneOffset.UTC)
               .format(Instant.now().plus(config.s3().linkTtl()));
-      long message =
-          telegram.sendText(
-              job.chatId(),
-              job.messageId(),
-              "Скачать TXT из S3:\n"
-                  + url
-                  + "\nСсылка действует до "
-                  + until
-                  + ". Файлы удаляются через "
-                  + config.cleanup().retention().toHours()
-                  + " ч после завершения задачи.");
-      jobs.delivered(job.id(), token, "link", message);
+      String caption =
+          "<a href=\""
+              + html(url)
+              + "\">Скачать TXT</a> — ссылка действует до "
+              + until
+              + ". Файлы удаляются через "
+              + config.cleanup().retention().toHours()
+              + " ч после завершения задачи.";
+      long message = telegram.sendDocument(job.chatId(), job.messageId(), path, name, caption);
+      jobs.delivered(job.id(), token, "document", message);
     }
     return new StageOutput(job.resultKey());
+  }
+
+  private static String html(String text) {
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
   }
 }

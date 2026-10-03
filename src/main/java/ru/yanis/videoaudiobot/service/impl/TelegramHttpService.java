@@ -96,7 +96,7 @@ class TelegramHttpService implements TelegramService {
             config.requestTimeout()));
   }
 
-  public long sendDocument(long chat, long reply, Path path, String caption) {
+  public long sendDocument(long chat, long reply, Path path, String fileName, String caption) {
     return result(
             http.multipart(
                 url("sendDocument"),
@@ -106,10 +106,13 @@ class TelegramHttpService implements TelegramService {
                     Long.toString(chat),
                     "caption",
                     caption,
+                    "parse_mode",
+                    "HTML",
                     "reply_parameters",
                     "{\"message_id\":" + reply + ",\"allow_sending_without_reply\":true}"),
                 "document",
                 path,
+                fileName,
                 "text/plain; charset=utf-8",
                 config.requestTimeout()))
         .path("message_id")

@@ -16,5 +16,6 @@ public interface TelegramService {
 
   void editText(long chatId, long messageId, String text);
 
-  long sendDocument(long chatId, long replyTo, Path path, String caption);
+  /** Sends path as fileName; the caption is Telegram HTML. */
+  long sendDocument(long chatId, long replyTo, Path path, String fileName, String htmlCaption);
 }

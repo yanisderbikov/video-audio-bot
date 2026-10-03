@@ -25,4 +25,23 @@ class TranscriptFormatterTest {
         .contains("Спикер 1: Три")
         .contains("может быть один человек");
   }
+
+  @Test
+  void fileNameUsesFirstTwoUtterancesAndIsSafe() {
+    var formatter = new TextTranscriptFormatter();
+    String name =
+        formatter.fileName(
+            new Transcript(
+                List.of(
+                    new Segment(0, 1, "a", "  Привет, коллеги!  "),
+                    new Segment(1, 2, "b", "Обсудим: бюджет/сроки?"),
+                    new Segment(2, 3, "a", "Третья реплика")),
+                false));
+    assertThat(name).isEqualTo("Привет коллеги Обсудим бюджет сроки.txt");
+    String longName =
+        formatter.fileName(
+            new Transcript(List.of(new Segment(0, 1, "a", "слово ".repeat(40))), false));
+    assertThat(longName).endsWith("слово.txt").hasSizeLessThanOrEqualTo(64);
+    assertThat(formatter.fileName(new Transcript(List.of(), false))).isEqualTo("Транскрипция.txt");
+  }
 }

@@ -74,6 +74,26 @@ class JdkHttpTransport implements HttpTransport {
       Path file,
       String mime,
       Duration timeout) {
+    return multipart(
+        url,
+        headers,
+        fields,
+        fileField,
+        file,
+        file.getFileName().toString().replaceAll("[^A-Za-z0-9._-]", "_"),
+        mime,
+        timeout);
+  }
+
+  public JsonNode multipart(
+      String url,
+      Map<String, String> headers,
+      Map<String, String> fields,
+      String fileField,
+      Path file,
+      String fileName,
+      String mime,
+      Duration timeout) {
     String boundary = "bot-" + UUID.randomUUID();
     List<HttpRequest.BodyPublisher> parts = new ArrayList<>();
     fields.forEach(
@@ -87,7 +107,8 @@ class JdkHttpTransport implements HttpTransport {
                         + "\"\r\n\r\n"
                         + value
                         + "\r\n")));
-    String filename = file.getFileName().toString().replaceAll("[^A-Za-z0-9._-]", "_");
+    // Quotes, backslashes and control characters would break the part header.
+    String filename = fileName.replaceAll("[\"\\\\\\p{Cntrl}]", "_");
     parts.add(
         HttpRequest.BodyPublishers.ofString(
             "--"

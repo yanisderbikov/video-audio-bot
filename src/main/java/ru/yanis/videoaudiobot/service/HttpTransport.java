@@ -17,6 +17,17 @@ public interface HttpTransport {
       String mime,
       Duration timeout);
 
+  /** Same as above, but sends fileName (may be non-ASCII) instead of the local file name. */
+  JsonNode multipart(
+      String url,
+      Map<String, String> headers,
+      Map<String, String> fields,
+      String fileField,
+      Path file,
+      String fileName,
+      String mime,
+      Duration timeout);
+
   void download(String url, Path destination, Duration timeout, long maxBytes);
 
   void download(

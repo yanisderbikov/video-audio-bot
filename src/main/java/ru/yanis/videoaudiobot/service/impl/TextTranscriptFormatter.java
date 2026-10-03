@@ -31,6 +31,24 @@ class TextTranscriptFormatter implements TranscriptFormatter {
     return text.toString();
   }
 
+  public String fileName(Transcript transcript) {
+    String text =
+        transcript.segments().stream()
+            .map(s -> s.text().strip())
+            .filter(s -> !s.isEmpty())
+            .limit(2)
+            .collect(java.util.stream.Collectors.joining(" "));
+    // Keep letters, digits and spaces only: safe on every OS and in multipart headers.
+    text = text.replaceAll("[^\\p{L}\\p{N}]+", " ").strip();
+    if (text.length() > NAME_LIMIT) {
+      int cut = text.lastIndexOf(' ', NAME_LIMIT);
+      text = text.substring(0, cut > NAME_LIMIT / 2 ? cut : NAME_LIMIT).strip();
+    }
+    return (text.isEmpty() ? "Транскрипция" : text) + ".txt";
+  }
+
+  private static final int NAME_LIMIT = 60;
+
   private String time(double value) {
     long n = Math.max(0, (long) value);
     return String.format(Locale.ROOT, "%02d:%02d:%02d", n / 3600, (n % 3600) / 60, n % 60);

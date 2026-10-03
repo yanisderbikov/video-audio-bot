@@ -272,17 +272,6 @@ ON CONFLICT(job_id,part_index) DO NOTHING
         .executeUpdate();
   }
 
-  public boolean recentlyDelivered(UUID id, String item, Duration maxAge) {
-    return !em.createNativeQuery(
-            "SELECT 1 FROM job_delivery WHERE job_id=:id AND item=:item AND"
-                + " sent_at>clock_timestamp()-:seconds*interval '1 second'")
-        .setParameter("id", id)
-        .setParameter("item", item)
-        .setParameter("seconds", maxAge.toSeconds())
-        .getResultList()
-        .isEmpty();
-  }
-
   public List<Job> pendingNotifications(int limit) {
     List<?> ids =
         em.createNativeQuery(

@@ -125,7 +125,9 @@ class FullPipelineTest {
     assertThat(Files.size(source)).isGreaterThan(20 * 1024 * 1024);
     when(telegram.file("large-file"))
         .thenReturn(new RemoteFile("/telegram/source.mp4", Files.size(source)));
-    when(telegram.sendDocument(anyLong(), anyLong(), any(), anyString())).thenReturn(900L);
+    when(telegram.sendDocument(anyLong(), anyLong(), any(), anyString(), anyString()))
+        .thenThrow(new ProcessingException("HTTP_429", true))
+        .thenReturn(900L);
     when(telegram.sendText(anyLong(), anyLong(), anyString())).thenReturn(901L);
     when(storage.key(any(), any(), anyString()))
         .thenAnswer(i -> i.getArgument(0) + "/" + i.getArgument(1) + "/" + i.getArgument(2));
@@ -184,16 +186,16 @@ class FullPipelineTest {
     runStage(Stage.TRANSCRIBE, false);
     assertThat(calls.get()).isEqualTo(4);
     runStage(Stage.FORMAT, false);
-    AtomicInteger linkCalls = new AtomicInteger();
-    when(telegram.sendText(anyLong(), anyLong(), startsWith("Скачать TXT")))
-        .thenAnswer(
-            i -> {
-              if (linkCalls.incrementAndGet() == 1) throw new ProcessingException("HTTP_429", true);
-              return 902L;
-            });
     runStage(Stage.DELIVER, true);
     runStage(Stage.DELIVER, false);
-    verify(telegram, times(1)).sendDocument(anyLong(), anyLong(), any(), anyString());
+    verify(telegram, times(2))
+        .sendDocument(
+            eq(1L),
+            eq(10L),
+            any(),
+            eq("Русская речь Русская речь.txt"),
+            contains("<a href=\"https://s3.example/transcript?signature=test\">Скачать TXT</a>"));
+    verify(telegram, never()).sendText(anyLong(), anyLong(), contains("Спикер"));
     assertThat(jobs.find(id).orElseThrow().status()).isEqualTo(JobStatus.COMPLETED);
     assertThat(calls.get()).isEqualTo(4);
     String resultKey = jobs.find(id).orElseThrow().resultKey();

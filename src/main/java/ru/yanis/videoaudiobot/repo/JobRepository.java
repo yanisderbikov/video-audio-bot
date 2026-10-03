@@ -37,8 +37,6 @@ public interface JobRepository {
 
   boolean delivered(UUID id, String item);
 
-  boolean recentlyDelivered(UUID id, String item, Duration maxAge);
-
   void delivered(UUID id, UUID token, String item, long messageId);
 
   List<Job> pendingNotifications(int limit);
