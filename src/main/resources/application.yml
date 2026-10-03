@@ -49,7 +49,6 @@ app:
     api-key: ${OPENAI_API_KEY}
     base-url: ${OPENAI_BASE_URL:https://api.openai.com}
     model: ${OPENAI_TRANSCRIPTION_MODEL:gpt-4o-transcribe-diarize}
-    language: ${OPENAI_LANGUAGE:ru}
     timeout: ${OPENAI_TIMEOUT:30m}
     max-upload-bytes: ${OPENAI_MAX_UPLOAD_BYTES:24000000}
     max-speaker-references: ${OPENAI_MAX_SPEAKER_REFERENCES:4}

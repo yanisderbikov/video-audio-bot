@@ -37,7 +37,6 @@ public record AppProperties(
       @NotBlank String apiKey,
       @NotBlank String baseUrl,
       @NotBlank String model,
-      @NotBlank String language,
       @NotNull Duration timeout,
       @Min(100000) @Max(25000000) long maxUploadBytes,
       @Min(0) @Max(4) int maxSpeakerReferences) {}

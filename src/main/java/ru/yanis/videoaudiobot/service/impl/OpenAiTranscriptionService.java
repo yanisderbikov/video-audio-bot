@@ -9,6 +9,8 @@ import ru.yanis.videoaudiobot.service.*;
 
 @Service
 class OpenAiTranscriptionService implements TranscriptionService {
+  // The bot only handles Russian speech; the language is deliberately not configurable.
+  private static final String LANGUAGE = "ru";
   private final HttpTransport http;
   private final AppProperties.Openai config;
 
@@ -23,7 +25,7 @@ class OpenAiTranscriptionService implements TranscriptionService {
         throw new ProcessingException("OPENAI_FILE_TOO_LARGE", false);
       Map<String, String> fields = new LinkedHashMap<>();
       fields.put("model", config.model());
-      fields.put("language", config.language());
+      fields.put("language", LANGUAGE);
       fields.put("response_format", "diarized_json");
       fields.put("chunking_strategy", "auto");
       int i = 0;
