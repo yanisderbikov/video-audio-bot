@@ -17,19 +17,16 @@ class DeliverHandler implements StageHandler {
   private final StorageService storage;
   private final TelegramService telegram;
   private final JobRepository jobs;
-  private final TranscriptFormatter formatter;
   private final AppProperties config;
 
   DeliverHandler(
       StorageService storage,
       TelegramService telegram,
       JobRepository jobs,
-      TranscriptFormatter formatter,
       AppProperties config) {
     this.storage = storage;
     this.telegram = telegram;
     this.jobs = jobs;
-    this.formatter = formatter;
     this.config = config;
   }
 
@@ -41,7 +38,7 @@ class DeliverHandler implements StageHandler {
     if (!jobs.delivered(job.id(), "document")) {
       Path path = dir.resolve("transcript.txt");
       storage.get(job.resultKey(), path);
-      String name = formatter.fileName(storage.getJson(job.transcriptKey(), Transcript.class));
+      String name = StorageService.fileName(job.resultKey());
       guard.check();
       String url = storage.signedUrl(job.resultKey(), config.s3().linkTtl());
       String until =

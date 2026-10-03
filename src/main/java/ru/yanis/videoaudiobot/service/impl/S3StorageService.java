@@ -77,9 +77,18 @@ class S3StorageService implements StorageService {
                         g ->
                             g.bucket(config.bucket())
                                 .key(key)
-                                .responseContentDisposition("attachment; filename=transcript.txt")))
+                                .responseContentDisposition(disposition(key))))
         .url()
         .toString();
+  }
+
+  // RFC 6266: ASCII fallback for old clients plus the UTF-8 name for everyone else.
+  static String disposition(String key) {
+    String name = StorageService.fileName(key);
+    String encoded =
+        java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8)
+            .replace("+", "%20");
+    return "attachment; filename=\"transcript.txt\"; filename*=UTF-8''" + encoded;
   }
 
   private void delete(List<ObjectIdentifier> objects) {

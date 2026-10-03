@@ -227,6 +227,7 @@ class FullPipelineTest {
     assertThat(jobs.find(id).orElseThrow().status()).isEqualTo(JobStatus.COMPLETED);
     assertThat(calls.get()).isEqualTo(4);
     String resultKey = jobs.find(id).orElseThrow().resultKey();
+    assertThat(resultKey).endsWith("/Русская речь Русская речь.txt");
     assertThat(new String(objects.get(resultKey), java.nio.charset.StandardCharsets.UTF_8))
         .contains("Русская речь")
         .contains("Спикер 1");

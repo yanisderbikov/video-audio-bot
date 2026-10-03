@@ -24,14 +24,16 @@ class FormatHandler implements StageHandler {
 
   public StageOutput execute(Job job, UUID token, Path dir, LeaseGuard guard) {
     guard.check();
-    String text = formatter.format(storage.getJson(job.transcriptKey(), Transcript.class));
+    Transcript transcript = storage.getJson(job.transcriptKey(), Transcript.class);
+    String text = formatter.format(transcript);
     Path path = dir.resolve("transcript.txt");
     try {
       Files.writeString(path, text);
     } catch (java.io.IOException e) {
       throw new ProcessingException("LOCAL_IO", true);
     }
-    String key = storage.key(job.id(), token, "transcript.txt");
+    // The object name is the user-facing file name; delivery and the S3 link reuse it.
+    String key = storage.key(job.id(), token, formatter.fileName(transcript));
     guard.check();
     storage.put(key, path, "text/plain; charset=utf-8");
     return new StageOutput(key);

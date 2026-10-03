@@ -17,7 +17,12 @@ public interface StorageService {
 
   <T> T getJson(String key, Class<T> type);
 
+  /** Download link; the browser saves the object under {@link #fileName(String)}. */
   String signedUrl(String key, Duration ttl);
 
   void deleteJob(UUID jobId);
+
+  static String fileName(String key) {
+    return key.substring(key.lastIndexOf('/') + 1);
+  }
 }
