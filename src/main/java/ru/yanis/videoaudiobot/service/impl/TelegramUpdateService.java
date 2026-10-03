@@ -1,6 +1,7 @@
 package ru.yanis.videoaudiobot.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.time.*;
 import java.util.*;
 import org.springframework.stereotype.Service;
 import ru.yanis.videoaudiobot.config.AppProperties;
@@ -10,14 +11,27 @@ import ru.yanis.videoaudiobot.service.*;
 
 @Service
 class TelegramUpdateService implements BotUpdateService {
+  private static final Duration QUOTA_WINDOW = Duration.ofDays(1);
+  private static final String AUTHOR = "@yanderbikov";
   private final JobRepository jobs;
   private final TelegramService telegram;
   private final AppProperties.Telegram config;
+  private final Set<String> unlimited;
 
   TelegramUpdateService(JobRepository jobs, TelegramService telegram, AppProperties p) {
     this.jobs = jobs;
     this.telegram = telegram;
     this.config = p.telegram();
+    unlimited = new HashSet<>();
+    if (config.unlimitedUsernames() != null)
+      for (String name : config.unlimitedUsernames()) {
+        String normalized = username(name);
+        if (!normalized.isEmpty()) unlimited.add(normalized);
+      }
+  }
+
+  private static String username(String name) {
+    return name.strip().replaceFirst("^@", "").toLowerCase(Locale.ROOT);
   }
 
   public void accept(JsonNode update) {
@@ -31,12 +45,8 @@ class TelegramUpdateService implements BotUpdateService {
     long user = message.path("from").path("id").asLong(),
         chat = message.path("chat").path("id").asLong(),
         reply = message.path("message_id").asLong();
-    if (config.allowedUserIds() != null
-        && !config.allowedUserIds().isEmpty()
-        && !config.allowedUserIds().contains(user)) {
-      jobs.ingest(id, null);
-      return;
-    }
+    String name = message.path("from").path("username").asText("");
+    boolean limited = name.isEmpty() || !unlimited.contains(username(name));
     JsonNode file = null;
     for (String type : List.of("video", "audio", "voice", "video_note", "document"))
       if (message.has(type)) {
@@ -53,23 +63,32 @@ class TelegramUpdateService implements BotUpdateService {
       }
       String unique = file.hasNonNull("file_unique_id") ? file.path("file_unique_id").asText() : null;
       var previous = jobs.duplicate(chat, user, unique);
-      // A redelivered update finds its own job; that is not a re-sent file.
-      if (previous.isPresent() && previous.get().updateId() != id) {
+      if (previous.isPresent()) {
         jobs.ingest(id, null);
-        telegram.sendText(
-            chat,
-            previous.get().messageId(),
-            "Этот файл уже отправлялся, повторно не обрабатываю. Результат — в ответах на это"
-                + " сообщение, статус: /status");
+        // A redelivered update finds its own job; that is neither a re-send nor a new job.
+        if (previous.get().updateId() != id)
+          telegram.sendText(
+              chat,
+              previous.get().messageId(),
+              "Этот файл уже отправлялся, повторно не обрабатываю. Результат — в ответах на это"
+                  + " сообщение, статус: /status");
         return;
       }
-      String name = file.path("file_name").asText("recording");
-      if (name.length() > 512) name = name.substring(0, 512);
+      if (limited) {
+        var reset = jobs.quotaResetAt(user, QUOTA_WINDOW, config.dailyLimit());
+        if (reset.isPresent()) {
+          jobs.ingest(id, null);
+          telegram.sendText(chat, reply, quotaText(reset.get()));
+          return;
+        }
+      }
+      String fileName = file.path("file_name").asText("recording");
+      if (fileName.length() > 512) fileName = fileName.substring(0, 512);
       String mime = file.path("mime_type").asText("application/octet-stream");
       jobs.ingest(
           id,
           new IncomingFile(
-              id, chat, user, reply, file.path("file_id").asText(), unique, name, mime, size));
+              id, chat, user, reply, file.path("file_id").asText(), unique, fileName, mime, size));
       return;
     }
     jobs.ingest(id, null);
@@ -83,6 +102,11 @@ class TelegramUpdateService implements BotUpdateService {
               reply,
               "Отправь видео, аудио, голосовое сообщение или файл. Я верну транскрипцию с"
                   + " говорящими, TXT и временную ссылку.\n"
+                  + "Бесплатный лимит — "
+                  + config.dailyLimit()
+                  + " в сутки; нужно больше — напиши автору "
+                  + AUTHOR
+                  + ".\n"
                   + "/status — последняя задача\n"
                   + "/retry <id> — повторить свою задачу с ошибкой.");
       case "/status" ->
@@ -111,5 +135,16 @@ class TelegramUpdateService implements BotUpdateService {
           telegram.sendText(chat, reply, "Пришли видео или аудио. Справка: /help");
       }
     }
+  }
+
+  private String quotaText(Instant reset) {
+    long minutes = Math.max(1, Duration.between(Instant.now(), reset).toMinutes() + 1);
+    return "Бесплатный лимит — "
+        + config.dailyLimit()
+        + " в сутки, он исчерпан. Следующая обработка будет доступна через "
+        + (minutes >= 60 ? minutes / 60 + " ч " + minutes % 60 + " мин" : minutes + " мин")
+        + ".\nНужно больше — напиши автору бота "
+        + AUTHOR
+        + ".";
   }
 }

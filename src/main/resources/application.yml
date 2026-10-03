@@ -43,7 +43,8 @@ app:
     request-timeout: ${TELEGRAM_REQUEST_TIMEOUT:10m}
     poll-timeout-seconds: ${TELEGRAM_POLL_TIMEOUT_SECONDS:30}
     max-file-bytes: ${TELEGRAM_MAX_FILE_BYTES:2147483648}
-    allowed-user-ids: ${TELEGRAM_ALLOWED_USER_IDS:}
+    unlimited-usernames: ${TELEGRAM_UNLIMITED_USERNAMES:}
+    daily-limit: ${TELEGRAM_DAILY_LIMIT:1}
   openai:
     api-key: ${OPENAI_API_KEY}
     base-url: ${OPENAI_BASE_URL:https://api.openai.com}

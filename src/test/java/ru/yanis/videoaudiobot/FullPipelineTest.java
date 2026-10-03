@@ -31,7 +31,8 @@ import ru.yanis.videoaudiobot.task.*;
       "app.s3.access-key=test",
       "app.s3.secret-key=test",
       "app.media.chunk-seconds=30",
-      "app.telegram.server-directory=/telegram"
+      "app.telegram.server-directory=/telegram",
+      "app.telegram.unlimited-usernames=@Boss"
     })
 class FullPipelineTest {
   static final Path root = tempDirectory();
@@ -88,6 +89,33 @@ class FullPipelineTest {
     sql.update("update transcription_job set status='FAILED' where chat_id=5");
     updates.accept(json.readTree(template.formatted(9102, 22, 3)));
     assertThat(jobCount(5)).isEqualTo(2);
+  }
+
+  @Test
+  void dailyLimitAppliesExceptToUnlimitedUsernames() throws Exception {
+    sql.execute(
+        "TRUNCATE"
+            + " transcription_job,transcription_checkpoint,job_delivery,job_notification,worker_lease"
+            + " CASCADE");
+    String template =
+        "{\"update_id\":%d,\"message\":{\"message_id\":%d,\"chat\":{\"id\":%d},"
+            + "\"from\":{\"id\":%d%s},\"voice\":{\"file_id\":\"id-%d\","
+            + "\"file_unique_id\":\"u-%d\",\"file_size\":100}}}";
+    updates.accept(json.readTree(template.formatted(9200, 30, 7, 7, "", 1, 1)));
+    updates.accept(json.readTree(template.formatted(9201, 31, 7, 7, "", 2, 2)));
+    assertThat(jobCount(7)).isEqualTo(1);
+    verify(telegram).sendText(eq(7L), eq(31L), contains("@yanderbikov"));
+
+    sql.update(
+        "update transcription_job set created_at=clock_timestamp()-interval '25 hours' where"
+            + " chat_id=7");
+    updates.accept(json.readTree(template.formatted(9202, 32, 7, 7, "", 3, 3)));
+    assertThat(jobCount(7)).isEqualTo(2);
+
+    String boss = ",\"username\":\"BOSS\"";
+    updates.accept(json.readTree(template.formatted(9203, 40, 8, 8, boss, 4, 4)));
+    updates.accept(json.readTree(template.formatted(9204, 41, 8, 8, boss, 5, 5)));
+    assertThat(jobCount(8)).isEqualTo(2);
   }
 
   long jobCount(long chat) {

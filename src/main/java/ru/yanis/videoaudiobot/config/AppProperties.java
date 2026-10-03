@@ -30,7 +30,8 @@ public record AppProperties(
       @NotNull Duration requestTimeout,
       @Min(1) @Max(50) int pollTimeoutSeconds,
       @Min(1) long maxFileBytes,
-      Set<Long> allowedUserIds) {}
+      Set<String> unlimitedUsernames,
+      @Min(1) int dailyLimit) {}
 
   public record Openai(
       @NotBlank String apiKey,

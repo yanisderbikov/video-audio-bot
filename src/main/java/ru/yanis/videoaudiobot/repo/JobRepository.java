@@ -14,6 +14,12 @@ public interface JobRepository {
 
   Optional<Job> latest(long chatId, long userId);
 
+  /**
+   * When the user may submit again if their non-failed jobs in the window already reach limit;
+   * empty if they are under the limit.
+   */
+  Optional<java.time.Instant> quotaResetAt(long userId, Duration window, int limit);
+
   /** An earlier job of this user for the same file that has not failed. */
   Optional<Job> duplicate(long chatId, long userId, String fileUniqueId);
 

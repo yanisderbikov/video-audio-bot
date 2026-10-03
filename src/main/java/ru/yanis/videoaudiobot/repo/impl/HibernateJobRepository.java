@@ -85,6 +85,23 @@ ON CONFLICT(update_id) DO NOTHING
         .findFirst();
   }
 
+  public Optional<java.time.Instant> quotaResetAt(long userId, Duration window, int limit) {
+    // The limit-th most recent job leaves the window first.
+    return em
+        .createNativeQuery(
+            "SELECT created_at+:seconds*interval '1 second' FROM transcription_job WHERE"
+                + " user_id=:user AND status<>'FAILED' AND"
+                + " created_at>clock_timestamp()-:seconds*interval '1 second'"
+                + " ORDER BY created_at DESC OFFSET :skip LIMIT 1",
+            java.time.Instant.class)
+        .setParameter("user", userId)
+        .setParameter("seconds", window.toSeconds())
+        .setParameter("skip", limit - 1)
+        .getResultStream()
+        .findFirst()
+        .map(java.time.Instant.class::cast);
+  }
+
   public Optional<Job> duplicate(long chatId, long userId, String fileUniqueId) {
     if (fileUniqueId == null) return Optional.empty();
     return em
