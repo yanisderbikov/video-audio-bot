@@ -18,4 +18,10 @@ public interface HttpTransport {
       Duration timeout);
 
   void download(String url, Path destination, Duration timeout, long maxBytes);
+
+  void download(
+      String url, Map<String, String> headers, Path destination, Duration timeout, long maxBytes);
+
+  /** Returns false when the resource is already absent (HTTP 404). */
+  boolean delete(String url, Map<String, String> headers, Duration timeout);
 }

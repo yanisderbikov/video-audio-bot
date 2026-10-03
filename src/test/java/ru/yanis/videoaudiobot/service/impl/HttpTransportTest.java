@@ -87,4 +87,31 @@ class HttpTransportTest {
               assertThat(e.retryable()).isTrue();
             });
   }
+
+  @Test
+  void downloadAndDeleteSendHeadersAndTreat404AsAbsent() throws Exception {
+    Map<String, String> seen = new HashMap<>();
+    server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/",
+        e -> {
+          seen.put(e.getRequestMethod(), e.getRequestHeaders().getFirst("Authorization"));
+          byte[] body = "file-content".getBytes();
+          if ("GET".equals(e.getRequestMethod())) {
+            e.sendResponseHeaders(200, body.length);
+            e.getResponseBody().write(body);
+          } else e.sendResponseHeaders(e.getRequestURI().getPath().contains("gone") ? 404 : 204, -1);
+          e.close();
+        });
+    server.start();
+    String base = "http://127.0.0.1:" + server.getAddress().getPort();
+    var transport = new JdkHttpTransport(new ObjectMapper(), Duration.ofSeconds(15));
+    var headers = Map.of("Authorization", "Bearer secret");
+    Path target = dir.resolve("source");
+    transport.download(base + "/a/file", headers, target, Duration.ofSeconds(2), 100);
+    assertThat(target).hasContent("file-content");
+    assertThat(transport.delete(base + "/a/file", headers, Duration.ofSeconds(2))).isTrue();
+    assertThat(transport.delete(base + "/a/gone", headers, Duration.ofSeconds(2))).isFalse();
+    assertThat(seen).containsEntry("GET", "Bearer secret").containsEntry("DELETE", "Bearer secret");
+  }
 }

@@ -44,10 +44,7 @@ class UploadHandler implements StageHandler {
     try {
       if (remote.path().startsWith("/")) {
         jobs.telegramPath(job.id(), token, remote.path());
-        Path local = work.telegramFile(remote.path());
-        if (Files.size(local) > config.telegram().maxFileBytes())
-          throw new ProcessingException("FILE_TOO_LARGE", false);
-        Files.copy(local, source, StandardCopyOption.REPLACE_EXISTING);
+        work.copyTelegramFile(remote.path(), source, config.telegram().maxFileBytes());
       } else telegram.download(remote.path(), source);
       if (Files.size(source) == 0 || Files.size(source) > config.telegram().maxFileBytes())
         throw new ProcessingException("FILE_SIZE_INVALID", false);

@@ -38,6 +38,8 @@ app:
     webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
     local-directory: ${TELEGRAM_LOCAL_DIRECTORY:/var/lib/telegram-bot-api}
     server-directory: ${TELEGRAM_SERVER_DIRECTORY:/var/lib/telegram-bot-api}
+    file-server-url: ${TELEGRAM_FILE_SERVER_URL:}
+    file-server-token: ${TELEGRAM_FILE_SERVER_TOKEN:}
     request-timeout: ${TELEGRAM_REQUEST_TIMEOUT:10m}
     poll-timeout-seconds: ${TELEGRAM_POLL_TIMEOUT_SECONDS:30}
     max-file-bytes: ${TELEGRAM_MAX_FILE_BYTES:2147483648}

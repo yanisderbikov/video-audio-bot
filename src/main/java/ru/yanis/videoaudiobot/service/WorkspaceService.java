@@ -6,7 +6,8 @@ import java.util.UUID;
 public interface WorkspaceService {
   Path attempt(UUID job, UUID token);
 
-  Path telegramFile(String serverPath);
+  /** Copies a Local Bot API file to destination, enforcing maxBytes. */
+  void copyTelegramFile(String serverPath, Path destination, long maxBytes);
 
   void removeAttempt(Path path);
 

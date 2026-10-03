@@ -25,6 +25,8 @@ public record AppProperties(
       String webhookSecret,
       @NotNull Path localDirectory,
       @NotNull Path serverDirectory,
+      String fileServerUrl,
+      String fileServerToken,
       @NotNull Duration requestTimeout,
       @Min(1) @Max(50) int pollTimeoutSeconds,
       @Min(1) long maxFileBytes,

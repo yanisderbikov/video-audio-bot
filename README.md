@@ -39,6 +39,8 @@ curl http://localhost:8080/actuator/health
 
 Compose запускает PostgreSQL, Local Bot API и Java-приложение. S3 используется внешний. Первая компиляция Local API/TDLib занимает время и требует нескольких ГБ RAM. `LOCAL_BOT_BUILD_JOBS=1` уменьшает нагрузку сборки. По умолчанию транскрибация ограничена 12 часами и входной файл — 2 ГиБ; ограничения настраиваются env.
 
+Без общего volume (например, Railway) задайте `TELEGRAM_FILE_SERVER_URL` (адрес файлового сервера Local API, порт 8082) и `TELEGRAM_FILE_SERVER_TOKEN` (тот же, что `FILE_SERVER_TOKEN` у Local API). Тогда файлы скачиваются и удаляются по HTTP, `TELEGRAM_LOCAL_DIRECTORY` не используется.
+
 Образ Java собирается без тестов, поэтому перед деплоем должен пройти `mvn verify` или CI. В этой среде не выполнялся платный вызов OpenAI и не использовался реальный Telegram-токен.
 
 ## Перенос бота на Local API

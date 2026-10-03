@@ -118,13 +118,18 @@ class JdkHttpTransport implements HttpTransport {
   }
 
   public void download(String url, Path destination, Duration timeout, long maxBytes) {
+    download(url, Map.of(), destination, timeout, maxBytes);
+  }
+
+  public void download(
+      String url, Map<String, String> headers, Path destination, Duration timeout, long maxBytes) {
     // BodySubscriber writes to disk and enforces the limit while streaming; request timeout covers
     // the body.
     try {
+      var builder = HttpRequest.newBuilder(URI.create(url)).timeout(timeout).GET();
+      headers.forEach(builder::header);
       var response =
-          client.send(
-              HttpRequest.newBuilder(URI.create(url)).timeout(timeout).GET().build(),
-              info -> new LimitedFileSubscriber(destination, maxBytes));
+          client.send(builder.build(), info -> new LimitedFileSubscriber(destination, maxBytes));
       if (response.statusCode() != 200) {
         Files.deleteIfExists(destination);
         throw new ProcessingException("TELEGRAM_DOWNLOAD_" + response.statusCode(), true);
@@ -136,6 +141,25 @@ class JdkHttpTransport implements HttpTransport {
       throw new ProcessingException("INTERRUPTED", true);
     } catch (Exception e) {
       throw new ProcessingException("DOWNLOAD_IO", true);
+    }
+  }
+
+  public boolean delete(String url, Map<String, String> headers, Duration timeout) {
+    try {
+      var builder = HttpRequest.newBuilder(URI.create(url)).timeout(timeout).DELETE();
+      headers.forEach(builder::header);
+      int code = client.send(builder.build(), HttpResponse.BodyHandlers.discarding()).statusCode();
+      if (code == 404) return false;
+      if (code < 200 || code >= 300)
+        throw new ProcessingException("HTTP_" + code, code == 429 || code >= 500 || code == 408);
+      return true;
+    } catch (ProcessingException e) {
+      throw e;
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new ProcessingException("INTERRUPTED", true);
+    } catch (Exception e) {
+      throw new ProcessingException("HTTP_IO", true);
     }
   }
 
