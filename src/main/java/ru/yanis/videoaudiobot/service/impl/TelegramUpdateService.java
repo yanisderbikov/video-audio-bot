@@ -2,10 +2,12 @@ package ru.yanis.videoaudiobot.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import org.springframework.stereotype.Service;
 import ru.yanis.videoaudiobot.config.AppProperties;
 import ru.yanis.videoaudiobot.dto.IncomingFile;
+import ru.yanis.videoaudiobot.model.*;
 import ru.yanis.videoaudiobot.repo.JobRepository;
 import ru.yanis.videoaudiobot.service.*;
 
@@ -15,13 +17,19 @@ class TelegramUpdateService implements BotUpdateService {
   private static final String AUTHOR = "@yanderbikov";
   private final JobRepository jobs;
   private final TelegramService telegram;
+  private final StorageService storage;
   private final AppProperties.Telegram config;
+  private final Duration linkTtl, retention;
   private final Set<String> unlimited;
 
-  TelegramUpdateService(JobRepository jobs, TelegramService telegram, AppProperties p) {
+  TelegramUpdateService(
+      JobRepository jobs, TelegramService telegram, StorageService storage, AppProperties p) {
     this.jobs = jobs;
     this.telegram = telegram;
+    this.storage = storage;
     this.config = p.telegram();
+    linkTtl = p.s3().linkTtl();
+    retention = p.cleanup().retention();
     unlimited = new HashSet<>();
     if (config.unlimitedUsernames() != null)
       for (String name : config.unlimitedUsernames()) {
@@ -107,15 +115,9 @@ class TelegramUpdateService implements BotUpdateService {
                   + " в сутки; нужно больше — напиши автору "
                   + AUTHOR
                   + ".\n"
-                  + "/status — последняя задача\n"
+                  + "/status — последняя задача и ссылка на файл, пока он не удалён\n"
                   + "/retry <id> — повторить свою задачу с ошибкой.");
-      case "/status" ->
-          telegram.sendText(
-              chat,
-              reply,
-              jobs.latest(chat, user)
-                  .map(j -> j.id() + "\n" + j.stage() + " / " + j.status())
-                  .orElse("Задач пока нет."));
+      case "/status" -> status(chat, user, reply);
       case "/retry" -> {
         boolean retried = false;
         try {
@@ -146,5 +148,35 @@ class TelegramUpdateService implements BotUpdateService {
         + ".\nНужно больше — напиши автору бота "
         + AUTHOR
         + ".";
+  }
+
+  private void status(long chat, long user, long reply) {
+    var latest = jobs.latest(chat, user);
+    if (latest.isEmpty()) {
+      telegram.sendText(chat, reply, "Задач пока нет.");
+      return;
+    }
+    Job job = latest.get();
+    String text = TelegramService.escapeHtml(job.id() + "\n" + job.stage() + " / " + job.status());
+    // Cleanup deletes completed results this long after their last update.
+    Duration left = Duration.between(Instant.now(), job.updatedAt().plus(retention));
+    if (job.status() == JobStatus.COMPLETED && job.resultKey() != null) {
+      if (left.toMinutes() >= 1) {
+        Duration ttl = left.compareTo(linkTtl) < 0 ? left : linkTtl;
+        String until =
+            DateTimeFormatter.ofPattern("dd.MM.uuuu HH:mm 'UTC'")
+                .withZone(ZoneOffset.UTC)
+                .format(Instant.now().plus(ttl));
+        text +=
+            "\n<a href=\""
+                + TelegramService.escapeHtml(storage.signedUrl(job.resultKey(), ttl))
+                + "\">Скачать «"
+                + TelegramService.escapeHtml(StorageService.fileName(job.resultKey()))
+                + "»</a> — ссылка действует до "
+                + until
+                + ".";
+      } else text += "\nФайлы уже удалены.";
+    } else if (job.status() == JobStatus.DELETED) text += "\nФайлы уже удалены.";
+    telegram.sendHtml(chat, reply, text);
   }
 }

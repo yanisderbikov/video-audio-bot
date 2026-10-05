@@ -14,8 +14,17 @@ public interface TelegramService {
 
   long sendText(long chatId, long replyTo, String text);
 
+  long sendHtml(long chatId, long replyTo, String html);
+
   void editText(long chatId, long messageId, String text);
 
   /** Sends path as fileName; the caption is Telegram HTML. */
   long sendDocument(long chatId, long replyTo, Path path, String fileName, String htmlCaption);
+
+  static String escapeHtml(String text) {
+    return text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;");
+  }
 }

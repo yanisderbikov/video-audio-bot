@@ -231,6 +231,14 @@ class FullPipelineTest {
     assertThat(new String(objects.get(resultKey), java.nio.charset.StandardCharsets.UTF_8))
         .contains("Русская речь")
         .contains("Спикер 1");
+    updates.accept(json.readTree(statusUpdate(9001)));
+    verify(telegram)
+        .sendHtml(
+            eq(1L),
+            eq(11L),
+            contains(
+                "<a href=\"https://s3.example/transcript?signature=test\">Скачать «Русская речь"
+                    + " Русская речь.txt»</a>"));
     maintenance.cleanup(guard);
     verify(storage, never()).deleteJob(any());
     sql.execute("alter table transcription_job disable trigger transcription_job_updated_at");
@@ -254,6 +262,15 @@ class FullPipelineTest {
     assertThat(jobs.find(id).orElseThrow().status()).isEqualTo(JobStatus.DELETED);
     assertThat(Files.exists(source)).isFalse();
     assertThat(jobs.checkpoint(id, 0)).isEmpty();
+    updates.accept(json.readTree(statusUpdate(9002)));
+    verify(telegram).sendHtml(eq(1L), eq(11L), contains("Файлы уже удалены"));
+  }
+
+  static String statusUpdate(long update) {
+    return "{\"update_id\":"
+        + update
+        + ",\"message\":{\"message_id\":11,\"chat\":{\"id\":1},\"from\":{\"id\":2},"
+        + "\"text\":\"/status\"}}";
   }
 
   private void runStage(Stage stage, boolean expectFailure) {

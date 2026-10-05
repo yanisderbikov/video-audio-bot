@@ -47,7 +47,7 @@ class DeliverHandler implements StageHandler {
               .format(Instant.now().plus(config.s3().linkTtl()));
       String caption =
           "<a href=\""
-              + html(url)
+              + TelegramService.escapeHtml(url)
               + "\">Скачать TXT</a> — ссылка действует до "
               + until
               + ". Файлы удаляются через "
@@ -57,9 +57,5 @@ class DeliverHandler implements StageHandler {
       jobs.delivered(job.id(), token, "document", message);
     }
     return new StageOutput(job.resultKey());
-  }
-
-  private static String html(String text) {
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
   }
 }

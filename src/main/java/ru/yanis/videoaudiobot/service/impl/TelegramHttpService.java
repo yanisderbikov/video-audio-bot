@@ -71,19 +71,20 @@ class TelegramHttpService implements TelegramService {
   }
 
   public long sendText(long chat, long reply, String text) {
-    return result(
-            http.json(
-                url("sendMessage"),
-                Map.of(
-                    "chat_id",
-                    chat,
-                    "text",
-                    text,
-                    "reply_parameters",
-                    Map.of("message_id", reply, "allow_sending_without_reply", true),
-                    "link_preview_options",
-                    Map.of("is_disabled", true)),
-                config.requestTimeout()))
+    return send(chat, reply, text, Map.of());
+  }
+
+  public long sendHtml(long chat, long reply, String html) {
+    return send(chat, reply, html, Map.of("parse_mode", "HTML"));
+  }
+
+  private long send(long chat, long reply, String text, Map<String, String> extra) {
+    Map<String, Object> body = new HashMap<>(extra);
+    body.put("chat_id", chat);
+    body.put("text", text);
+    body.put("reply_parameters", Map.of("message_id", reply, "allow_sending_without_reply", true));
+    body.put("link_preview_options", Map.of("is_disabled", true));
+    return result(http.json(url("sendMessage"), body, config.requestTimeout()))
         .path("message_id")
         .asLong();
   }
