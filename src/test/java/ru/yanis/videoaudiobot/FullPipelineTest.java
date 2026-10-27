@@ -118,6 +118,31 @@ class FullPipelineTest {
     assertThat(jobCount(8)).isEqualTo(2);
   }
 
+  @Test
+  void blockedChatStopsNotificationRetries() throws Exception {
+    sql.execute(
+        "TRUNCATE"
+            + " transcription_job,transcription_checkpoint,job_delivery,job_notification,worker_lease"
+            + " CASCADE");
+    updates.accept(
+        json.readTree(
+            "{\"update_id\":9300,\"message\":{\"message_id\":50,\"chat\":{\"id\":11},"
+                + "\"from\":{\"id\":11},\"voice\":{\"file_id\":\"id-b\","
+                + "\"file_unique_id\":\"u-b\",\"file_size\":100}}}"));
+    when(telegram.sendText(eq(11L), anyLong(), anyString()))
+        .thenThrow(new ProcessingException("TELEGRAM_403", false));
+    sql.update("update job_notification set sent_state=null, next_attempt_at=clock_timestamp()");
+    maintenance.notifyUsers(guard);
+    maintenance.notifyUsers(guard);
+    verify(telegram, times(1)).sendText(eq(11L), anyLong(), anyString());
+    assertThat(
+            sql.queryForObject(
+                "select sent_state from job_notification n join transcription_job j on"
+                    + " j.id=n.job_id where j.chat_id=11",
+                String.class))
+        .isNotNull();
+  }
+
   long jobCount(long chat) {
     return sql.queryForObject(
         "select count(*) from transcription_job where chat_id=?", Long.class, chat);

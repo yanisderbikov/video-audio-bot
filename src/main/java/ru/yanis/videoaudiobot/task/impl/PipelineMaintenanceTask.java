@@ -34,11 +34,12 @@ class PipelineMaintenanceTask implements MaintenanceTask {
   public void notifyUsers(LeaseGuard guard) {
     for (Job job : jobs.pendingNotifications(50)) {
       guard.check();
+      String state = job.stage() + ":" + job.status();
+      Long message = null;
       try {
         var n = jobs.notification(job.id());
-        String state = job.stage() + ":" + job.status();
         String text = status(job);
-        Long message = n.messageId();
+        message = n.messageId();
         if (message == null) message = telegram.sendText(job.chatId(), job.messageId(), text);
         else {
           try {
@@ -52,13 +53,20 @@ class PipelineMaintenanceTask implements MaintenanceTask {
         }
         guard.check();
         jobs.notified(job.id(), message, state);
+      } catch (ProcessingException e) {
+        // The user blocked the bot or left the chat: retrying would never succeed.
+        if (e.getMessage().equals("TELEGRAM_403")) {
+          jobs.notified(job.id(), message, state);
+          log.info("Notification skipped for job {} (TELEGRAM_403)", job.id());
+        } else {
+          jobs.notificationFailed(
+              job.id(), config.pipeline().retryBase(), config.pipeline().retryMax());
+          log.warn("Notification failed for job {} ({})", job.id(), e.getMessage());
+        }
       } catch (Exception e) {
         jobs.notificationFailed(
             job.id(), config.pipeline().retryBase(), config.pipeline().retryMax());
-        log.warn(
-            "Notification failed for job {} ({})",
-            job.id(),
-            e instanceof ProcessingException ? e.getMessage() : e.getClass().getSimpleName());
+        log.warn("Notification failed for job {} ({})", job.id(), e.getClass().getSimpleName());
       }
     }
   }
