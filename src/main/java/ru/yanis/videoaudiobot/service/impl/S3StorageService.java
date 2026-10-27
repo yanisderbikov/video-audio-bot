@@ -4,9 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.*;
 import java.time.Duration;
 import java.util.*;
+import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 import ru.yanis.videoaudiobot.config.AppProperties;
 import ru.yanis.videoaudiobot.service.*;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
@@ -34,10 +36,29 @@ class S3StorageService implements StorageService {
     return prefix(id) + attempt + "/" + name;
   }
 
+  // Maps SDK failures to a safe code like S3_403_AccessDenied; the message may carry endpoints.
+  private static <T> T call(Supplier<T> action) {
+    try {
+      return action.get();
+    } catch (S3Exception e) {
+      int status = e.statusCode();
+      String error =
+          e.awsErrorDetails() == null || e.awsErrorDetails().errorCode() == null
+              ? "Unknown"
+              : e.awsErrorDetails().errorCode().replaceAll("[^A-Za-z0-9]", "");
+      throw new ProcessingException(
+          "S3_" + status + "_" + error, status == 408 || status == 429 || status >= 500);
+    } catch (SdkException e) {
+      throw new ProcessingException("S3_IO_" + e.getClass().getSimpleName(), true);
+    }
+  }
+
   public void put(String key, Path path, String contentType) {
-    s3.putObject(
-        b -> b.bucket(config.bucket()).key(key).contentType(contentType),
-        RequestBody.fromFile(path));
+    call(
+        () ->
+            s3.putObject(
+                b -> b.bucket(config.bucket()).key(key).contentType(contentType),
+                RequestBody.fromFile(path)));
   }
 
   public void get(String key, Path path) {
@@ -46,14 +67,17 @@ class S3StorageService implements StorageService {
     } catch (Exception e) {
       throw new ProcessingException("LOCAL_IO", true);
     }
-    s3.getObject(b -> b.bucket(config.bucket()).key(key), path);
+    call(() -> s3.getObject(b -> b.bucket(config.bucket()).key(key), path));
   }
 
   public void putJson(String key, Object value) {
     try {
-      s3.putObject(
-          b -> b.bucket(config.bucket()).key(key).contentType("application/json"),
-          RequestBody.fromBytes(json.writeValueAsBytes(value)));
+      byte[] body = json.writeValueAsBytes(value);
+      call(
+          () ->
+              s3.putObject(
+                  b -> b.bucket(config.bucket()).key(key).contentType("application/json"),
+                  RequestBody.fromBytes(body)));
     } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
       throw new ProcessingException("JSON_WRITE", false);
     }
@@ -62,7 +86,8 @@ class S3StorageService implements StorageService {
   public <T> T getJson(String key, Class<T> type) {
     try {
       return json.readValue(
-          s3.getObjectAsBytes(b -> b.bucket(config.bucket()).key(key)).asByteArray(), type);
+          call(() -> s3.getObjectAsBytes(b -> b.bucket(config.bucket()).key(key))).asByteArray(),
+          type);
     } catch (java.io.IOException e) {
       throw new ProcessingException("JSON_READ", false);
     }

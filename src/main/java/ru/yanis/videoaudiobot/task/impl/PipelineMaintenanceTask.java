@@ -55,7 +55,10 @@ class PipelineMaintenanceTask implements MaintenanceTask {
       } catch (Exception e) {
         jobs.notificationFailed(
             job.id(), config.pipeline().retryBase(), config.pipeline().retryMax());
-        log.warn("Notification failed for job {} ({})", job.id(), e.getClass().getSimpleName());
+        log.warn(
+            "Notification failed for job {} ({})",
+            job.id(),
+            e instanceof ProcessingException ? e.getMessage() : e.getClass().getSimpleName());
       }
     }
   }

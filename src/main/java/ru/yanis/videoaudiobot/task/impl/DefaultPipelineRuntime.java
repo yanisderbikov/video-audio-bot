@@ -131,7 +131,12 @@ class DefaultPipelineRuntime implements PipelineRuntime {
                               retryable,
                               config.pipeline().maxAttempts(),
                               Duration.ofSeconds(seconds));
-                        log.warn("Job {} stage {} failed: {}", job.id(), job.stage(), code);
+                        log.warn(
+                            "Job {} stage {} failed: {} ({})",
+                            job.id(),
+                            job.stage(),
+                            code,
+                            e.getClass().getName());
                       } finally {
                         if (dir != null)
                           try {
